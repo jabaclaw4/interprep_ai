@@ -3,7 +3,7 @@ aiogram==3.8.0
 aiohttp==3.9.0
 python-dotenv==1.0.1
 sqlalchemy==2.0.29
-pydantic==2.5.3
+pydantic==2.4.2
 
 # ===== ЭТАП 2: ДОБАВИТЬ ПОСЛЕ УСПЕШНОГО ДЕПЛОЯ =====
 # langchain==0.1.0
