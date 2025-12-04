@@ -1,14 +1,15 @@
+# ===== ЭТАП 1: БАЗОВЫЙ БОТ =====
 aiogram==3.8.0
-aiohttp==3.9.1
+aiohttp==3.8.5
 python-dotenv==1.0.1
 sqlalchemy==2.0.29
+pydantic==2.5.3
 
-# RAG и AI зависимости - УБЕРИТЕ ПОКА
+# ===== ЭТАП 2: ДОБАВИТЬ ПОСЛЕ УСПЕШНОГО ДЕПЛОЯ =====
 # langchain==0.1.0
+# langchain-community==0.0.10
+# pypdf==3.17.4
+
+# ===== ЭТАП 3: ТЯЖЕЛЫЕ AI ЗАВИСИМОСТИ =====
 # chromadb==0.4.22
 # sentence-transformers==2.2.2
-# pypdf==3.17.4
-# langchain-community==0.0.10
-
-# pydantic МОЖЕТ вызывать проблемы - используйте стабильную версию
-pydantic==2.6.3

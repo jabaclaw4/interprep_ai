@@ -1,23 +1,24 @@
 #!/bin/bash
-echo "🚀 Starting InterPrep AI Bot..."
+echo "🤖 InterPrep AI Bot - Railway Deployment"
 
-# Создаем необходимые папки
-mkdir -p data knowledge chroma_db
+# 1. Create necessary directories
+mkdir -p data
 
-echo "📁 Folders created"
-echo "📂 Current directory: $(pwd)"
-echo "📂 Contents:"
-ls -la
+# 2. Log environment
+echo "📁 Current dir: $(pwd)"
+echo "📂 Files: $(ls -la)"
 
-# Проверяем переменные окружения
-echo "🔧 Environment check:"
-if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-    echo "✅ TELEGRAM_BOT_TOKEN: [SET]"
-else
-    echo "❌ TELEGRAM_BOT_TOKEN: [NOT SET]"
+# 3. Check for token
+if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+    echo "❌ ERROR: TELEGRAM_BOT_TOKEN not set!"
     exit 1
 fi
+echo "✅ Token is set"
 
-# Запускаем бота
-echo "🤖 Starting bot..."
+# 4. Install dependencies
+echo "📦 Installing dependencies from requirements.txt..."
+pip install --no-cache-dir -r requirements.txt
+
+# 5. Start the bot
+echo "🚀 Starting bot..."
 exec python main.py
