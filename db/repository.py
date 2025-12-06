@@ -121,6 +121,17 @@ class SessionRepository:
 
         return [session.to_dict() for session in sessions]
 
+    @staticmethod
+    def update_session_data(db: Session, session_id: int, data_updates: dict):
+        """Обновляет данные сессии"""
+        session = db.query(Session).filter(Session.id == session_id).first()
+        if session:
+            session.data = session.data or {}
+            session.data.update(data_updates)
+            db.commit()
+            return True
+        return False
+
 
 class AssessmentRepository:
     @staticmethod

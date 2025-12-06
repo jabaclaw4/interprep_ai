@@ -1,6 +1,6 @@
 import os
 from sqlalchemy import create_engine, Column, Integer, String, Text, JSON, DateTime, ForeignKey, Float, Boolean
-from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship, Mapped, mapped_column, Session
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 

@@ -23,7 +23,7 @@ class PlanStates(StatesGroup):
     save_plan = State()  # Сохранить план
 
 
-async def cmd_plan(message: Message, state: FSMContext):
+async def start_planning_process(message: Message, state: FSMContext):
     """Создать план обучения - УПРОЩЕННАЯ версия"""
     await state.clear()  # Очищаем предыдущие состояния
 
@@ -278,7 +278,7 @@ async def process_plan_confirmation(
     elif any(word in user_choice for word in ['нет', 'no', 'заново', 'новый']):
         # Начинаем заново
         await state.clear()
-        await cmd_plan(message, state)
+        await start_planning_process(message, state)
 
     else:
         await message.answer("Пожалуйста, выберите вариант из кнопок ниже")
@@ -335,7 +335,7 @@ async def process_save_plan(
 
     elif "новый" in user_choice.lower():
         await state.clear()
-        await cmd_plan(message, state)
+        await start_planning_process(message, state)
         return
 
     await state.clear()
@@ -425,40 +425,4 @@ def format_detailed_plan(plan_data: dict) -> str:
     return response
 
 
-# ===================== РЕГИСТРАЦИЯ ХЭНДЛЕРОВ =====================
 
-def register_planning_handlers(dp: Router, agents: dict, use_rag: bool, get_or_create_user):
-    """Регистрация хэндлеров планирования - ИСПРАВЛЕННАЯ"""
-
-    # Команда /plan
-    dp.message.register(cmd_plan, Command("plan"))
-
-    # Обработка цели (что изучать)
-    dp.message.register(
-        lambda m: process_plan_goal(m, m.bot.state, agents, use_rag, get_or_create_user),
-        PlanStates.waiting_goal
-    )
-
-    # Обработка уровня
-    dp.message.register(
-        lambda m: process_plan_level(m, m.bot.state, agents, use_rag, get_or_create_user),
-        PlanStates.waiting_level
-    )
-
-    # Обработка времени и создание плана
-    dp.message.register(
-        lambda m: process_plan_time(m, m.bot.state, agents, use_rag, get_or_create_user),
-        PlanStates.waiting_time
-    )
-
-    # Подтверждение и показ деталей
-    dp.message.register(
-        lambda m: process_plan_confirmation(m, m.bot.state, agents, use_rag, get_or_create_user),
-        PlanStates.confirm_details
-    )
-
-    # Сохранение плана
-    dp.message.register(
-        lambda m: process_save_plan(m, m.bot.state, agents, use_rag, get_or_create_user),
-        PlanStates.save_plan
-    )

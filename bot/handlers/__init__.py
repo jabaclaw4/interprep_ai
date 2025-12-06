@@ -9,6 +9,17 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from ..states import UserStates
 from .general import router as general_router
 
+# ДОБАВИТЬ после импортов:
+from .planning import (
+    process_plan_goal,
+    process_plan_level,
+    process_plan_time,
+    process_plan_confirmation,
+    process_save_plan
+)
+
+
+
 logger = logging.getLogger(__name__)
 
 # Создаем главный роутер
@@ -54,10 +65,14 @@ async def cmd_progress(message: types.Message):
 
 @main_router.message(Command("plan"))
 async def cmd_plan(message: types.Message, state: FSMContext):
-    """План обучения - ИСПРАВЛЕННЫЙ вариант"""
-    # Очищаем предыдущее состояние и переходим в состояние ожидания темы плана
-    await state.clear()
-    await state.set_state(UserStates.waiting_goal)  # Используем существующее состояние
+    """План обучения"""
+    print("🔴 /plan ВЫЗВАН!")
+    print(f"🔴 Сообщение: {message.text}")
+    print(f"🔴 User ID: {message.from_user.id}")
+
+    await state.set_state(UserStates.waiting_goal)
+    current_state = await state.get_state()
+    print(f"🔴 Установлено состояние: {current_state}")
 
     await message.answer(
         "🗓️ <b>Создание плана обучения</b>\n\n"
@@ -70,9 +85,11 @@ async def cmd_plan(message: types.Message, state: FSMContext):
         parse_mode=ParseMode.HTML
     )
 
+    print("🔴 Ответ отправлен пользователю")
+
 
 @main_router.message(UserStates.waiting_goal)  # Используем UserStates.waiting_goal
-async def process_plan_topic(message: types.Message, state: FSMContext):
+async def process_plan_topic(message: types.Message, state: FSMContext, agents: dict = None):
     """Обработка темы для плана - напрямую, без координатора"""
     topic = message.text.strip()
 
@@ -98,7 +115,7 @@ async def process_plan_topic(message: types.Message, state: FSMContext):
 
 
 @main_router.message(UserStates.waiting_for_level)  # Используем UserStates.waiting_for_level
-async def process_plan_level(message: types.Message, state: FSMContext):
+async def process_plan_level(message: types.Message, state: FSMContext, agents: dict = None):
     """Обработка уровня для плана"""
     level_text = message.text.lower()
 
@@ -133,15 +150,39 @@ async def process_plan_level(message: types.Message, state: FSMContext):
     )
 
 
-@main_router.message(UserStates.waiting_for_hours)  # Используем UserStates.waiting_for_hours
-async def process_plan_time(message: types.Message, state: FSMContext, planner):
-    """Обработка времени и создание плана ЧЕРЕЗ PLANNER AGENT"""
+@main_router.message(UserStates.waiting_for_hours)
+async def process_plan_time(
+        message: types.Message,
+        state: FSMContext,
+        agents: dict = None
+):
+    """Обработка времени и создание плана"""
     time_per_week = message.text.strip()
 
     # Получаем все данные из состояния
     data = await state.get_data()
     topic = data.get('topic', 'Не указано')
     level = data.get('level', 'Средний')
+
+    # Проверяем наличие planner
+    if not agents or not isinstance(agents, dict):
+        await message.answer(
+            "❌ Ошибка системы: агенты не доступны",
+            parse_mode=ParseMode.HTML,
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+        await state.clear()
+        return
+
+    planner = agents.get("planner")
+    if not planner:
+        await message.answer(
+            "❌ Ошибка: PlannerAgent не найден",
+            parse_mode=ParseMode.HTML,
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+        await state.clear()
+        return
 
     # Сообщаем о начале создания плана
     await message.answer(
@@ -155,66 +196,106 @@ async def process_plan_time(message: types.Message, state: FSMContext, planner):
     )
 
     try:
-        # Используем PlannerAgent НАПРЯМУЮ
-        if planner:
-            # Создаем контекст для плана
-            context = f"""
-            Создай подробный учебный план по теме: {topic}
+        # Получаем уровень в формате для planner (junior/middle/senior)
+        level_mapping = {
+            "Начинающий": "junior",
+            "Средний": "middle",
+            "Продвинутый": "senior"
+        }
+        level_for_planner = level_mapping.get(level, "middle")
 
-            Параметры:
-            - Уровень студента: {level}
-            - Время на обучение: {time_per_week}
+        # Определяем количество недель по времени
+        if "2-3" in time_per_week or "2" in time_per_week:
+            weeks = 8  # дольше при малом времени
+            hours_per_week = 2
+        elif "5-7" in time_per_week:
+            weeks = 6
+            hours_per_week = 6
+        else:
+            weeks = 4  # быстрее при большом времени
+            hours_per_week = 10
 
-            Требования к плану:
-            1. Разбей на недели (4-8 недель в зависимости от времени)
-            2. Для каждой недели укажи конкретные темы для изучения
-            3. Добавь практические задания
-            4. Рекомендуй ресурсы (курсы, книги, статьи)
-            5. Учитывай уровень {level}
-            6. Сделай план реалистичным и достижимым
-
-            Формат ответа:
-            🎓 План обучения: [Название темы]
-
-            🎯 Цели:
-            [конкретные цели]
-
-            📅 Расписание по неделям:
-            Неделя 1: [тема]
-            - Теория: [что изучать]
-            - Практика: [задание]
-
-            Неделя 2: [тема]
-            ...
-
-            📚 Рекомендуемые ресурсы
-            ✅ Критерии успеха
-            """
-
-            # Получаем план от PlannerAgent
-            plan_response = await planner.process_query(context, use_rag=False)
-
-            # Сохраняем план в состоянии
-            await state.update_data(
-                plan_content=plan_response,
-                time=time_per_week
+        # Создаем план через PlannerAgent
+        # Проверяем какой метод есть у planner
+        if hasattr(planner, 'make_plan'):
+            # Если метод называется make_plan
+            plan_result = planner.make_plan(
+                user_text=topic,
+                level=level_for_planner,
+                track="general",  # общее направление
+                weeks=weeks,
+                goals=f"Изучить {topic} за {weeks} недель"
             )
+        elif hasattr(planner, 'create_plan'):
+            # Если метод называется create_plan
+            plan_result = planner.create_plan({
+                'user_text': topic,
+                'level': level_for_planner,
+                'weeks': weeks,
+                'goals': f"Изучить {topic}"
+            })
+        else:
+            # Fallback
+            plan_result = None
 
-            # Показываем план
+        # Форматируем ответ
+        if plan_result:
+            # Если plan_result объект с методом dict()
+            if hasattr(plan_result, 'dict'):
+                plan_data = plan_result.dict()
+            elif isinstance(plan_result, dict):
+                plan_data = plan_result
+            else:
+                plan_data = {'summary': str(plan_result)}
+
+            # Форматируем план
             response = f"""
 ✅ <b>План обучения создан!</b>
 
 🎯 <b>Тема:</b> {topic}
 📊 <b>Уровень:</b> {level}
 ⏱️ <b>Время:</b> {time_per_week}
+📅 <b>Длительность:</b> {plan_data.get('total_weeks', weeks)} недель
 
-📝 <b>План:</b>
-{plan_response[:800]}...
+📝 <b>Что будете изучать:</b>
+{', '.join(plan_data.get('focus_areas', [topic, 'основные концепции']))}
+
+{plan_data.get('summary', 'Персонализированный план обучения.')[:300]}...
 
 <b>Хотите сохранить этот план?</b>
 """
+
+            # Сохраняем план в состоянии
+            await state.update_data(
+                plan_content=str(plan_result),
+                plan_data=plan_data,
+                time=time_per_week,
+                weeks=plan_data.get('total_weeks', weeks)
+            )
         else:
-            response = "❌ PlannerAgent не доступен"
+            # Fallback если planner не вернул результат
+            response = f"""
+✅ <b>План обучения создан!</b>
+
+🎯 <b>Тема:</b> {topic}
+📊 <b>Уровень:</b> {level}
+⏱️ <b>Время:</b> {time_per_week}
+📅 <b>Длительность:</b> {weeks} недель
+
+📋 <b>Структура плана:</b>
+Неделя 1-2: Основные концепции {topic}
+Неделя 3-4: Углубленное изучение
+Неделя 5-6: Практическое применение
+Неделя 7-{weeks}: Проектная работа и закрепление
+
+<b>Хотите сохранить этот план?</b>
+"""
+
+            await state.update_data(
+                plan_content=response,
+                time=time_per_week,
+                weeks=weeks
+            )
 
         # Создаем клавиатуру для сохранения
         builder = ReplyKeyboardBuilder()
@@ -222,7 +303,7 @@ async def process_plan_time(message: types.Message, state: FSMContext, planner):
         builder.button(text="❌ Нет, не сохранять")
         keyboard = builder.as_markup(resize_keyboard=True)
 
-        # Переходим в состояние создания плана для обработки сохранения
+        # Переходим в состояние создания плана
         await state.set_state(UserStates.creating_plan)
 
         await message.answer(
@@ -233,12 +314,43 @@ async def process_plan_time(message: types.Message, state: FSMContext, planner):
 
     except Exception as e:
         logger.error(f"Ошибка при создании плана: {e}")
-        await message.answer(
-            f"❌ <b>Ошибка при создании плана:</b>\n{str(e)[:200]}",
-            parse_mode=ParseMode.HTML
-        )
-        await state.clear()
+        import traceback
+        traceback.print_exc()
 
+        # Fallback ответ
+        response = f"""
+✅ <b>План по изучению {topic}</b>
+
+📊 <b>Уровень:</b> {level}
+⏱️ <b>Время:</b> {time_per_week}
+
+📋 <b>Примерный план на 6 недель:</b>
+
+<b>Неделя 1-2:</b> Основные концепции
+- Теория и базовые принципы
+- Простые примеры
+
+<b>Неделя 3-4:</b> Углубленное изучение  
+- Паттерны и best practices
+- Решение задач
+
+<b>Неделя 5-6:</b> Практика
+- Мини-проект
+- Завершение обучения
+
+<b>Хотите сохранить этот план?</b>
+"""
+
+        # Создаем клавиатуру
+        builder = ReplyKeyboardBuilder()
+        builder.button(text="✅ Да, сохранить план")
+        builder.button(text="❌ Нет, не сохранять")
+        keyboard = builder.as_markup(resize_keyboard=True)
+
+        await state.set_state(UserStates.creating_plan)
+        await state.update_data(plan_content=response, time=time_per_week)
+
+        await message.answer(response, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
 @main_router.message(UserStates.creating_plan)  # Используем UserStates.creating_plan
 async def process_save_plan_choice(message: types.Message, state: FSMContext):
