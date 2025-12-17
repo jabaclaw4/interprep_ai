@@ -1,0 +1,30 @@
+// tests/fixtures/test_scenarios.json
+[
+  {
+    "id": "python_oop_basic",
+    "topic": "Python ООП",
+    "user_query": "Задай вопрос по ООП в Python",
+    "expected_agents": ["interviewer", "assessor"],
+    "required_keywords": ["ООП", "Python", "принцип"],
+    "sample_question": "Что такое инкапсуляция?",
+    "difficulty": "beginner"
+  },
+  {
+    "id": "algorithms_sorting",
+    "topic": "Алгоритмы",
+    "user_query": "Спроси про алгоритмы сортировки",
+    "expected_agents": ["interviewer", "assessor"],
+    "required_keywords": ["сортировка", "алгоритм", "сложность"],
+    "sample_question": "В чем разница между быстрой и пузырьковой сортировкой?",
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "databases_indexes",
+    "topic": "Базы данных",
+    "user_query": "Хочу вопросы по индексам в БД",
+    "expected_agents": ["interviewer", "assessor"],
+    "required_keywords": ["индекс", "база", "данных", "оптимизация"],
+    "sample_question": "Что такое covering index?",
+    "difficulty": "advanced"
+  }
+]
